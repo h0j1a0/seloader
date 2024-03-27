@@ -31,6 +31,8 @@ ifeq ($(ARCH),arm)
 DEFINES		+= -DMDE_CPU_ARM
 endif
 
+DEFINES	+= -DOVERRIDE_SECURITY_POLICY
+
 LDFLAGS		= -nostdlib -znocombreloc
 
 

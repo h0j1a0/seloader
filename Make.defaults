@@ -28,7 +28,7 @@ DATATARGETDIR	?= $(datadir)/$(PKGNAME)/$(VERSION)$(DASHRELEASE)/$(ARCH_SUFFIX)/
 DEBUGINFO	?= $(prefix)/lib/debug/
 DEBUGSOURCE	?= $(prefix)/src/debug/
 OSLABEL		?= $(EFIDIR)
-DEFAULT_LOADER	?= \\\\grub$(ARCH_SUFFIX).efi
+DEFAULT_LOADER	?= \\\\grub$(ARCH_SUFFIX)_real.efi
 DASHJ		?= -j$(shell echo $$(($$(grep -c "^model name" /proc/cpuinfo) + 1)))
 
 ARCH		?= $(shell $(CC) -dumpmachine | cut -f1 -d- | sed s,i[3456789]86,ia32,)
@@ -141,9 +141,9 @@ CFLAGS		= $(FEATUREFLAGS) \
 
 POST_PROCESS_PE_FLAGS =
 
-ifneq ($(origin OVERRIDE_SECURITY_POLICY), undefined)
-	DEFINES	+= -DOVERRIDE_SECURITY_POLICY
-endif
+
+DEFINES	+= -DOVERRIDE_SECURITY_POLICY
+
 
 ifneq ($(origin REQUIRE_TPM), undefined)
 	DEFINES  += -DREQUIRE_TPM

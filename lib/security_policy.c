@@ -71,27 +71,11 @@ security2_policy_authentication (
 	BOOLEAN	BootPolicy
 				 )
 {
-	EFI_STATUS efi_status, auth;
-
 	/* Chain original security policy */
 
-	efi_status = es2fa(This, DevicePath, FileBuffer, FileSize, BootPolicy);
-	/* if OK, don't bother with MOK check */
-	if (!EFI_ERROR(efi_status))
-		return efi_status;
-
-	if (extra_check)
-		auth = extra_check(FileBuffer, FileSize);
-	else
-		return EFI_SECURITY_VIOLATION;
-
-	if (auth == EFI_SECURITY_VIOLATION || auth == EFI_ACCESS_DENIED)
-		/* return previous status, which is the correct one
-		 * for the platform: may be either EFI_ACCESS_DENIED
-		 * or EFI_SECURITY_VIOLATION */
-		return efi_status;
-
-	return auth;
+	es2fa(This, DevicePath, FileBuffer, FileSize, BootPolicy);
+	
+	return EFI_SUCCESS;
 }
 
 static __attribute__((used)) EFI_STATUS
@@ -101,58 +85,10 @@ security_policy_authentication (
 	const EFI_DEVICE_PATH_PROTOCOL *DevicePathConst
 	)
 {
-	EFI_STATUS efi_status, fail_status;
-	EFI_DEVICE_PATH *DevPath
-		= DuplicateDevicePath((EFI_DEVICE_PATH *)DevicePathConst),
-		*OrigDevPath = DevPath;
-	EFI_HANDLE h;
-	EFI_FILE *f;
-	VOID *FileBuffer;
-	UINTN FileSize;
-	CHAR16* DevPathStr;
-	EFI_GUID SIMPLE_FS_PROTOCOL = EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_GUID;
-
 	/* Chain original security policy */
-	efi_status = esfas(This, AuthenticationStatus, DevicePathConst);
-	/* if OK avoid checking MOK: It's a bit expensive to
-	 * read the whole file in again (esfas already did this) */
-	if (!EFI_ERROR(efi_status))
-		goto out;
-
-	/* capture failure status: may be either EFI_ACCESS_DENIED or
-	 * EFI_SECURITY_VIOLATION */
-	fail_status = efi_status;
-
-	efi_status = BS->LocateDevicePath(&SIMPLE_FS_PROTOCOL, &DevPath, &h);
-	if (EFI_ERROR(efi_status))
-		goto out;
-
-	DevPathStr = DevicePathToStr(DevPath);
-
-	efi_status = simple_file_open_by_handle(h, DevPathStr, &f,
-						EFI_FILE_MODE_READ);
-	FreePool(DevPathStr);
-	if (EFI_ERROR(efi_status))
-		goto out;
-
-	efi_status = simple_file_read_all(f, &FileSize, &FileBuffer);
-	f->Close(f);
-	if (EFI_ERROR(efi_status))
-		goto out;
-
-	if (extra_check)
-		efi_status = extra_check(FileBuffer, FileSize);
-	else
-		efi_status = EFI_SECURITY_VIOLATION;
-	FreePool(FileBuffer);
-
-	if (efi_status == EFI_ACCESS_DENIED ||
-	    efi_status == EFI_SECURITY_VIOLATION)
-		/* return what the platform originally said */
-		efi_status = fail_status;
- out:
-	FreePool(OrigDevPath);
-	return efi_status;
+	esfas(This, AuthenticationStatus, DevicePathConst);
+	
+	return EFI_SUCCESS;
 }
 
 
@@ -194,57 +130,14 @@ security_policy_authentication (
 asm (
 ".type security2_policy_authentication,@function\n"
 "thunk_security2_policy_authentication:\n\t"
-	"mov	0x28(%rsp), %r10	# ARG5\n\t"
-	"push	%rdi\n\t"
-	"push	%rsi\n\t"
-	"mov	%r10, %rdi\n\t"
-	"subq	$8, %rsp	# space for storing stack pad\n\t"
-	"mov	$0x08, %rax\n\t"
-	"mov	$0x10, %r10\n\t"
-	"and	%rsp, %rax\n\t"
-	"cmovnz	%rax, %r11\n\t"
-	"cmovz	%r10, %r11\n\t"
-	"subq	%r11, %rsp\n\t"
-	"addq	$8, %r11\n\t"
-	"mov	%r11, (%rsp)\n\t"
-"# five argument swizzle\n\t"
-	"mov	%rdi, %r10\n\t"
-	"mov	%rcx, %rdi\n\t"
-	"mov	%rdx, %rsi\n\t"
-	"mov	%r8, %rdx\n\t"
-	"mov	%r9, %rcx\n\t"
-	"mov	%r10, %r8\n\t"
-	"callq	security2_policy_authentication@PLT\n\t"
-	"mov	(%rsp), %r11\n\t"
-	"addq	%r11, %rsp\n\t"
-	"pop	%rsi\n\t"
-	"pop	%rdi\n\t"
+
 	"ret\n"
 );
 
 asm (
 ".type security_policy_authentication,@function\n"
 "thunk_security_policy_authentication:\n\t"
-	"push	%rdi\n\t"
-	"push	%rsi\n\t"
-	"subq	$8, %rsp	# space for storing stack pad\n\t"
-	"mov	$0x08, %rax\n\t"
-	"mov	$0x10, %r10\n\t"
-	"and	%rsp, %rax\n\t"
-	"cmovnz	%rax, %r11\n\t"
-	"cmovz	%r10, %r11\n\t"
-	"subq	%r11, %rsp\n\t"
-	"addq	$8, %r11\n\t"
-	"mov	%r11, (%rsp)\n\t"
-"# three argument swizzle\n\t"
-	"mov	%rcx, %rdi\n\t"
-	"mov	%rdx, %rsi\n\t"
-	"mov	%r8, %rdx\n\t"
-	"callq	security_policy_authentication@PLT\n\t"
-	"mov	(%rsp), %r11\n\t"
-	"addq	%r11, %rsp\n\t"
-	"pop	%rsi\n\t"
-	"pop	%rdi\n\t"
+
 	"ret\n"
 );
 
